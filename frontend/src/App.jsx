@@ -1,17 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
+import { getUsers, registerUser, loginUser, getTasks, createTask, updateTask, deleteTask } from './lib/supabase.js'
 import './App.css'
 
 // ── 定数 ──────────────────────────────────────────────
 const STATUS_LABELS = { pending: '未着手', in_progress: '進行中', completed: '完了' }
 const STATUS_COLORS = { pending: 'status-pending', in_progress: 'status-progress', completed: 'status-done' }
 const EMPTY_FORM = { title: '', description: '', status: 'pending', due_date: '' }
-
-// ── API ヘルパー ────────────────────────────────────────
-function apiFetch(path, options = {}, token = null) {
-  const headers = { 'Content-Type': 'application/json', Accept: 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  return fetch(path, { ...options, headers })
-}
 
 // ── アバター絵文字 ─────────────────────────────────────
 const AVATARS = ['👨', '👩', '👦', '👧', '🧑', '👴', '👵']
@@ -44,19 +38,17 @@ function PinPad({ pin, onPress, onBack, disabled }) {
 // 新規登録画面
 // ══════════════════════════════════════════════════════
 function RegisterScreen({ onLogin, onCancel }) {
-  const [step, setStep]       = useState('name')  // 'name' | 'pin' | 'confirm'
+  const [step, setStep]       = useState('name')
   const [name, setName]       = useState('')
   const [pin, setPin]         = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
 
-  // PIN入力完了 → 確認ステップへ
   useEffect(() => {
     if (step === 'pin' && pin.length === 4) setStep('confirm')
   }, [pin, step])
 
-  // 確認完了 → 照合して送信
   useEffect(() => {
     if (step === 'confirm' && confirm.length === 4) {
       if (confirm !== pin) {
@@ -71,21 +63,13 @@ function RegisterScreen({ onLogin, onCancel }) {
   async function submit() {
     setLoading(true); setError('')
     try {
-      const res = await apiFetch('/api/register', {
-        method: 'POST',
-        body: JSON.stringify({ name, pin, pin_confirmation: confirm }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        const msg = data.errors
-          ? Object.values(data.errors).flat().join(' / ')
-          : (data.message ?? '登録に失敗しました')
-        setError(msg); setPin(''); setConfirm(''); setStep('name')
-        return
-      }
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      onLogin(data.token, data.user)
+      const user = await registerUser(name.trim(), pin)
+      if (!user) throw new Error('登録に失敗しました')
+      localStorage.setItem('user', JSON.stringify(user))
+      onLogin(user)
+    } catch (e) {
+      setError(e.message ?? '登録に失敗しました')
+      setPin(''); setConfirm(''); setStep('name')
     } finally { setLoading(false) }
   }
 
@@ -115,9 +99,7 @@ function RegisterScreen({ onLogin, onCancel }) {
             style={{ marginTop: 12, width: '100%' }}
             disabled={!name.trim()}
             onClick={() => { setError(''); setStep('pin') }}
-          >
-            次へ →
-          </button>
+          >次へ →</button>
         </div>
       )}
 
@@ -125,12 +107,8 @@ function RegisterScreen({ onLogin, onCancel }) {
         <>
           <p className="pin-step-label">4桁のPINを決めてください</p>
           {error && <p className="pin-error">{error}</p>}
-          <PinPad
-            pin={pin}
-            onPress={d => { if (pin.length < 4) setPin(p => p + d) }}
-            onBack={() => setPin(p => p.slice(0, -1))}
-            disabled={loading}
-          />
+          <PinPad pin={pin} onPress={d => { if (pin.length < 4) setPin(p => p + d) }}
+            onBack={() => setPin(p => p.slice(0, -1))} disabled={loading} />
         </>
       )}
 
@@ -138,12 +116,8 @@ function RegisterScreen({ onLogin, onCancel }) {
         <>
           <p className="pin-step-label">もう一度PINを入力してください</p>
           {error && <p className="pin-error">{error}</p>}
-          <PinPad
-            pin={confirm}
-            onPress={d => { if (confirm.length < 4) setConfirm(p => p + d) }}
-            onBack={() => setConfirm(p => p.slice(0, -1))}
-            disabled={loading}
-          />
+          <PinPad pin={confirm} onPress={d => { if (confirm.length < 4) setConfirm(p => p + d) }}
+            onBack={() => setConfirm(p => p.slice(0, -1))} disabled={loading} />
         </>
       )}
 
@@ -157,14 +131,14 @@ function RegisterScreen({ onLogin, onCancel }) {
 // ══════════════════════════════════════════════════════
 function LoginScreen({ onLogin, theme, onToggleTheme }) {
   const [members, setMembers] = useState([])
-  const [mode, setMode]       = useState('select')  // 'select' | 'login' | 'register'
+  const [mode, setMode]       = useState('select')
   const [selected, setSelected] = useState(null)
   const [pin, setPin]         = useState('')
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    apiFetch('/api/users').then(r => r.json()).then(setMembers)
+    getUsers().then(data => setMembers(data ?? []))
   }, [])
 
   function selectMember(m) { setSelected(m); setPin(''); setError(''); setMode('login') }
@@ -173,15 +147,10 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
   async function submitLogin() {
     setLoading(true); setError('')
     try {
-      const res = await apiFetch('/api/login', {
-        method: 'POST',
-        body: JSON.stringify({ user_id: selected.id, pin }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setError(data.message ?? 'ログイン失敗'); setPin(''); return }
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      onLogin(data.token, data.user)
+      const user = await loginUser(selected.id, pin)
+      if (!user) { setError('PINが違います'); setPin(''); return }
+      localStorage.setItem('user', JSON.stringify(user))
+      onLogin(user)
     } finally { setLoading(false) }
   }
 
@@ -189,9 +158,9 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
     if (mode === 'login' && pin.length === 4) submitLogin()
   }, [pin])
 
-  function handleRegistered(token, user) {
+  function handleRegistered(user) {
     setMembers(prev => [...prev, { id: user.id, name: user.name }])
-    onLogin(token, user)
+    onLogin(user)
   }
 
   return (
@@ -228,12 +197,8 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
               <span>{selected.name}</span>
             </div>
             {error && <p className="pin-error">{error}</p>}
-            <PinPad
-              pin={pin}
-              onPress={d => { if (pin.length < 4) setPin(p => p + d) }}
-              onBack={() => setPin(p => p.slice(0, -1))}
-              disabled={loading}
-            />
+            <PinPad pin={pin} onPress={d => { if (pin.length < 4) setPin(p => p + d) }}
+              onBack={() => setPin(p => p.slice(0, -1))} disabled={loading} />
             {loading && <p className="pin-loading">確認中...</p>}
           </div>
         )}
@@ -249,23 +214,24 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
 // ══════════════════════════════════════════════════════
 // タスクフォーム（モーダル）
 // ══════════════════════════════════════════════════════
-function TaskModal({ task, token, onSave, onClose }) {
+function TaskModal({ task, userId, onSave, onClose }) {
   const [form, setForm] = useState(task ? {
     title: task.title,
     description: task.description ?? '',
     status: task.status,
-    due_date: task.due_date ? task.due_date.slice(0, 10) : '',
+    due_date: task.due_date ?? '',
   } : EMPTY_FORM)
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault(); setSaving(true)
     try {
-      const url = task ? `/api/tasks/${task.id}` : '/api/tasks'
-      const res = await apiFetch(url, { method: task ? 'PUT' : 'POST', body: JSON.stringify(form) }, token)
-      if (!res.ok) { const d = await res.json(); alert(d.message ?? '保存失敗'); return }
-      const saved = await res.json()
+      const saved = task
+        ? await updateTask(task.id, userId, form)
+        : await createTask(userId, form)
+      if (!saved) throw new Error('保存に失敗しました')
       onSave(saved, !!task)
+    } catch (e) { alert(e.message)
     } finally { setSaving(false) }
   }
 
@@ -288,7 +254,7 @@ function TaskModal({ task, token, onSave, onClose }) {
             </select>
           </label>
           <label>期限日
-            <input type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} />
+            <input type="date" value={form.due_date ?? ''} onChange={e => setForm({...form, due_date: e.target.value})} />
           </label>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose}>キャンセル</button>
@@ -305,19 +271,19 @@ function TaskModal({ task, token, onSave, onClose }) {
 // ══════════════════════════════════════════════════════
 // メインアプリ
 // ══════════════════════════════════════════════════════
-function MainApp({ token, user, onLogout, theme, onToggleTheme }) {
-  const [tasks, setTasks] = useState([])
-  const [loading, setLoading] = useState(true)
+function MainApp({ user, onLogout, theme, onToggleTheme }) {
+  const [tasks, setTasks]         = useState([])
+  const [loading, setLoading]     = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await apiFetch('/api/tasks', {}, token)
-      if (res.ok) setTasks(await res.json())
+      const data = await getTasks(user.id)
+      setTasks(data ?? [])
     } finally { setLoading(false) }
-  }, [token])
+  }, [user.id])
 
   useEffect(() => { fetchTasks() }, [fetchTasks])
 
@@ -329,22 +295,17 @@ function MainApp({ token, user, onLogout, theme, onToggleTheme }) {
 
   async function handleDelete(task) {
     if (!confirm(`「${task.title}」を削除しますか？`)) return
-    const res = await apiFetch(`/api/tasks/${task.id}`, { method: 'DELETE' }, token)
-    if (res.ok) setTasks(prev => prev.filter(t => t.id !== task.id))
-    else alert('削除に失敗しました')
+    await deleteTask(task.id, user.id)
+    setTasks(prev => prev.filter(t => t.id !== task.id))
   }
 
   async function handleStatusChange(task, newStatus) {
-    const res = await apiFetch(`/api/tasks/${task.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ ...task, status: newStatus }),
-    }, token)
-    if (res.ok) { const updated = await res.json(); setTasks(prev => prev.map(t => t.id === task.id ? updated : t)) }
+    const updated = await updateTask(task.id, user.id, { ...task, status: newStatus })
+    if (updated) setTasks(prev => prev.map(t => t.id === task.id ? updated : t))
   }
 
-  async function logout() {
-    await apiFetch('/api/logout', { method: 'POST' }, token)
-    localStorage.removeItem('token'); localStorage.removeItem('user')
+  function logout() {
+    localStorage.removeItem('user')
     onLogout()
   }
 
@@ -385,14 +346,11 @@ function MainApp({ token, user, onLogout, theme, onToggleTheme }) {
                   </span>
                   <p className="task-title">{task.title}</p>
                   {task.description && <p className="task-desc">{task.description}</p>}
-                  {task.due_date && <p className="task-due">📅 {task.due_date.slice(0, 10)}</p>}
+                  {task.due_date && <p className="task-due">📅 {task.due_date}</p>}
                 </div>
                 <div className="task-controls">
-                  <select
-                    className="status-select"
-                    value={task.status}
-                    onChange={e => handleStatusChange(task, e.target.value)}
-                  >
+                  <select className="status-select" value={task.status}
+                    onChange={e => handleStatusChange(task, e.target.value)}>
                     {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                   <button className="icon-btn edit-btn" onClick={() => { setEditingTask(task); setShowModal(true) }}>✏️</button>
@@ -407,7 +365,7 @@ function MainApp({ token, user, onLogout, theme, onToggleTheme }) {
       {showModal && (
         <TaskModal
           task={editingTask}
-          token={token}
+          userId={user.id}
           onSave={handleSave}
           onClose={() => { setShowModal(false); setEditingTask(null) }}
         />
@@ -420,7 +378,6 @@ function MainApp({ token, user, onLogout, theme, onToggleTheme }) {
 // ルート
 // ══════════════════════════════════════════════════════
 export default function App() {
-  const [token, setToken] = useState(() => localStorage.getItem('token'))
   const [user, setUser]   = useState(() => {
     try { return JSON.parse(localStorage.getItem('user')) } catch { return null }
   })
@@ -431,12 +388,10 @@ export default function App() {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  function handleLogin(t, u) { setToken(t); setUser(u) }
-  function handleLogout()    { setToken(null); setUser(null) }
-  function toggleTheme()     { setTheme(t => t === 'light' ? 'dark' : 'light') }
+  function toggleTheme() { setTheme(t => t === 'light' ? 'dark' : 'light') }
 
-  if (!token || !user) {
-    return <LoginScreen onLogin={handleLogin} theme={theme} onToggleTheme={toggleTheme} />
+  if (!user) {
+    return <LoginScreen onLogin={setUser} theme={theme} onToggleTheme={toggleTheme} />
   }
-  return <MainApp token={token} user={user} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+  return <MainApp user={user} onLogout={() => setUser(null)} theme={theme} onToggleTheme={toggleTheme} />
 }
