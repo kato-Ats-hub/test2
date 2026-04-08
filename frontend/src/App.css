@@ -147,6 +147,53 @@ body {
 .member-avatar { font-size: 2.4rem; line-height: 1; }
 .member-name   { font-size: .85rem; font-weight: 700; color: var(--text); }
 
+/* 新規登録リンク */
+.btn-register-link {
+  margin-top: 20px;
+  width: 100%;
+  padding: 12px;
+  background: none;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--primary);
+  font-size: .9rem; font-weight: 700;
+  cursor: pointer;
+  transition: background .2s, border-color .2s;
+}
+.btn-register-link:hover {
+  background: var(--surface2);
+  border-color: var(--primary);
+}
+
+/* 登録画面 */
+.pin-step-label {
+  font-size: .9rem; font-weight: 700;
+  color: var(--text-sub); text-align: center;
+}
+
+.reg-name-wrap {
+  width: 100%;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.reg-name-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 1rem;
+  font-family: inherit;
+  text-align: center;
+  transition: border-color .2s;
+}
+.reg-name-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(124,58,237,.18);
+}
+
 /* PIN入力 */
 .pin-area { display: flex; flex-direction: column; align-items: center; gap: 16px; }
 

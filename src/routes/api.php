@@ -14,6 +14,29 @@ Route::get('/users', function () {
     );
 });
 
+// 新規登録
+Route::post('/register', function (Request $request) {
+    $request->validate([
+        'name'             => 'required|string|max:255|unique:users,name',
+        'pin'              => 'required|digits:4',
+        'pin_confirmation' => 'required|same:pin',
+    ], [
+        'name.unique'          => 'この名前はすでに使われています',
+        'pin.digits'           => 'PINは4桁の数字にしてください',
+        'pin_confirmation.same' => 'PINが一致しません',
+    ]);
+
+    $user = User::create([
+        'name'     => $request->name,
+        'password' => Hash::make($request->pin),
+    ]);
+
+    $token = Str::random(60);
+    $user->update(['api_token' => $token]);
+
+    return response()->json(['token' => $token, 'user' => ['id' => $user->id, 'name' => $user->name]], 201);
+});
+
 // PINログイン
 Route::post('/login', function (Request $request) {
     $request->validate([
