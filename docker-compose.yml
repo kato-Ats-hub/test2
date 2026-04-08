@@ -26,6 +26,7 @@ services:
     volumes:
       - ./src:/data
       - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./frontend/dist:/react/dist
     working_dir: /data
     depends_on:
       - app
