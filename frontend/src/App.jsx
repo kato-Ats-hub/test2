@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getUsers, registerUser, loginUser, getTasks, createTask, updateTask, deleteTask } from './lib/supabase.js'
+import { requestPermission, hasPermission, scheduleNotifications, cancelNotification } from './lib/notifications.js'
 import './App.css'
 
 // ── 定数 ──────────────────────────────────────────────
 const STATUS_LABELS = { pending: '未着手', in_progress: '進行中', completed: '完了' }
 const STATUS_COLORS = { pending: 'status-pending', in_progress: 'status-progress', completed: 'status-done' }
-const EMPTY_FORM = { title: '', description: '', status: 'pending', due_date: '' }
+const EMPTY_FORM = { title: '', description: '', status: 'pending', due_date: '', due_time: '' }
 
 // ── アバター絵文字 ─────────────────────────────────────
 const AVATARS = ['👨', '👩', '👦', '👧', '🧑', '👴', '👵']
@@ -220,6 +221,7 @@ function TaskModal({ task, userId, onSave, onClose }) {
     description: task.description ?? '',
     status: task.status,
     due_date: task.due_date ?? '',
+    due_time: task.due_time ?? '',
   } : EMPTY_FORM)
   const [saving, setSaving] = useState(false)
 
@@ -256,6 +258,10 @@ function TaskModal({ task, userId, onSave, onClose }) {
           <label>期限日
             <input type="date" value={form.due_date ?? ''} onChange={e => setForm({...form, due_date: e.target.value})} />
           </label>
+          <label>
+            通知時刻 <span className="label-hint">（設定するとその時間に通知）</span>
+            <input type="time" value={form.due_time ?? ''} onChange={e => setForm({...form, due_time: e.target.value})} />
+          </label>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose}>キャンセル</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -276,6 +282,7 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   const [loading, setLoading]     = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
+  const [notifEnabled, setNotifEnabled] = useState(hasPermission)
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
@@ -287,6 +294,17 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
 
   useEffect(() => { fetchTasks() }, [fetchTasks])
 
+  // タスク読み込み後に通知をスケジュール
+  useEffect(() => {
+    if (tasks.length > 0) scheduleNotifications(tasks)
+  }, [tasks])
+
+  async function enableNotifications() {
+    const ok = await requestPermission()
+    setNotifEnabled(ok)
+    if (ok && tasks.length > 0) scheduleNotifications(tasks)
+  }
+
   function handleSave(saved, isEdit) {
     if (isEdit) setTasks(prev => prev.map(t => t.id === saved.id ? saved : t))
     else setTasks(prev => [saved, ...prev])
@@ -296,6 +314,7 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   async function handleDelete(task) {
     if (!confirm(`「${task.title}」を削除しますか？`)) return
     await deleteTask(task.id, user.id)
+    cancelNotification(task.id)
     setTasks(prev => prev.filter(t => t.id !== task.id))
   }
 
@@ -317,6 +336,11 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
           <span className="header-name">{user.name}</span>
         </div>
         <div className="header-actions">
+          {!notifEnabled && (
+            <button className="btn btn-notif" onClick={enableNotifications} title="通知を有効にする">
+              🔔
+            </button>
+          )}
           <button className="theme-btn" onClick={onToggleTheme} title="テーマ切替">
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
@@ -347,6 +371,7 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
                   <p className="task-title">{task.title}</p>
                   {task.description && <p className="task-desc">{task.description}</p>}
                   {task.due_date && <p className="task-due">📅 {task.due_date}</p>}
+                  {task.due_time && <p className="task-time">🔔 {task.due_time.slice(0,5)}</p>}
                 </div>
                 <div className="task-controls">
                   <select className="status-select" value={task.status}

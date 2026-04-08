@@ -71,6 +71,9 @@ body {
 
 .btn-primary { background: linear-gradient(135deg, var(--primary), #a855f7); color: #fff; }
 .btn-ghost   { background: var(--surface2); color: var(--text); border: 1.5px solid var(--border); }
+.btn-notif   { background: #fef3c7; color: #92400e; border: 1.5px solid #fcd34d; animation: ring .8s ease infinite alternate; }
+[data-theme="dark"] .btn-notif { background: #451a03; color: #fcd34d; border-color: #92400e; }
+@keyframes ring { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
 
 .theme-btn {
   background: none;
@@ -310,6 +313,8 @@ body {
 .task-title  { font-size: 1rem; font-weight: 800; }
 .task-desc   { font-size: .85rem; color: var(--text-sub); white-space: pre-wrap; }
 .task-due    { font-size: .8rem; color: var(--text-sub); }
+.task-time   { font-size: .8rem; color: var(--primary); font-weight: 700; }
+.label-hint  { font-size: .75rem; color: var(--text-sub); font-weight: 400; margin-left: 4px; }
 
 /* ステータスバッジ */
 .status-badge {
