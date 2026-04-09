@@ -157,7 +157,7 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
       </button>
 
       <div className="login-card">
-        <h1 className="login-title">👨‍👩‍👧‍👦 家族タスク</h1>
+        <h1 className="login-title">📝 タスクアプリ</h1>
 
         {mode === 'select' && (
           <>

@@ -1,7 +1,7 @@
 {
-  "name": "タスク管理",
-  "short_name": "タスク管理",
-  "description": "家族みんなで使えるタスク管理アプリ",
+  "name": "タスクアプリ",
+  "short_name": "タスクアプリ",
+  "description": "タスク管理アプリ",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#7c3aed",
