@@ -8,30 +8,25 @@ const STATUS_LABELS = { pending: '未着手', in_progress: '進行中', complete
 const STATUS_COLORS = { pending: 'status-pending', in_progress: 'status-progress', completed: 'status-done' }
 const EMPTY_FORM = { title: '', description: '', status: 'pending', due_date: '', due_time: '' }
 
-// ── アバター絵文字 ─────────────────────────────────────
-const AVATARS = ['👨', '👩', '👦', '👧', '🧑', '👴', '👵']
-function getAvatar(index) { return AVATARS[index % AVATARS.length] }
-
-// ── PINパッド（共通部品） ──────────────────────────────
-function PinPad({ pin, onPress, onBack, disabled }) {
+// ── PIN入力欄（キーボード／テンキー） ─────────────────
+function PinInput({ value, onChange, onComplete, placeholder = '••••', disabled, autoFocus = false }) {
   return (
-    <>
-      <div className="pin-dots">
-        {[0, 1, 2, 3].map(i => (
-          <span key={i} className={`pin-dot ${i < pin.length ? 'filled' : ''}`} />
-        ))}
-      </div>
-      <div className="numpad">
-        {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((d, i) => (
-          <button
-            key={i}
-            className={`num-btn ${d === '' ? 'invisible' : ''}`}
-            onClick={() => d === '⌫' ? onBack() : onPress(d)}
-            disabled={disabled || d === ''}
-          >{d}</button>
-        ))}
-      </div>
-    </>
+    <input
+      className="pin-input"
+      type="password"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      maxLength={4}
+      value={value}
+      placeholder={placeholder}
+      disabled={disabled}
+      autoFocus={autoFocus}
+      onChange={e => {
+        const v = e.target.value.replace(/\D/g, '').slice(0, 4)
+        onChange(v)
+        if (v.length === 4 && onComplete) onComplete(v)
+      }}
+    />
   )
 }
 
@@ -46,20 +41,20 @@ function RegisterScreen({ onLogin, onCancel }) {
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (step === 'pin' && pin.length === 4) setStep('confirm')
-  }, [pin, step])
+  function handlePinComplete(v) {
+    setPin(v)
+    setStep('confirm')
+  }
 
-  useEffect(() => {
-    if (step === 'confirm' && confirm.length === 4) {
-      if (confirm !== pin) {
-        setError('PINが一致しません。もう一度試してください')
-        setPin(''); setConfirm(''); setStep('pin')
-      } else {
-        submit()
-      }
+  function handleConfirmComplete(v) {
+    setConfirm(v)
+    if (v !== pin) {
+      setError('PINが一致しません。もう一度試してください')
+      setPin(''); setConfirm(''); setStep('pin')
+    } else {
+      submit()
     }
-  }, [confirm, step])
+  }
 
   async function submit() {
     setLoading(true); setError('')
@@ -77,10 +72,7 @@ function RegisterScreen({ onLogin, onCancel }) {
   return (
     <div className="pin-area">
       <button className="back-link" onClick={onCancel}>← もどる</button>
-      <div className="pin-user">
-        <span className="pin-avatar">🆕</span>
-        <span>新規登録</span>
-      </div>
+      <div className="pin-user"><span>新規登録</span></div>
 
       {step === 'name' && (
         <div className="reg-name-wrap">
@@ -108,8 +100,7 @@ function RegisterScreen({ onLogin, onCancel }) {
         <>
           <p className="pin-step-label">4桁のPINを決めてください</p>
           {error && <p className="pin-error">{error}</p>}
-          <PinPad pin={pin} onPress={d => { if (pin.length < 4) setPin(p => p + d) }}
-            onBack={() => setPin(p => p.slice(0, -1))} disabled={loading} />
+          <PinInput value={pin} onChange={setPin} onComplete={handlePinComplete} disabled={loading} autoFocus />
         </>
       )}
 
@@ -117,8 +108,7 @@ function RegisterScreen({ onLogin, onCancel }) {
         <>
           <p className="pin-step-label">もう一度PINを入力してください</p>
           {error && <p className="pin-error">{error}</p>}
-          <PinPad pin={confirm} onPress={d => { if (confirm.length < 4) setConfirm(p => p + d) }}
-            onBack={() => setConfirm(p => p.slice(0, -1))} disabled={loading} />
+          <PinInput value={confirm} onChange={setConfirm} onComplete={handleConfirmComplete} disabled={loading} autoFocus />
         </>
       )}
 
@@ -145,19 +135,15 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
   function selectMember(m) { setSelected(m); setPin(''); setError(''); setMode('login') }
   function backToSelect()  { setMode('select'); setSelected(null); setPin(''); setError('') }
 
-  async function submitLogin() {
+  async function submitLogin(pinValue) {
     setLoading(true); setError('')
     try {
-      const user = await loginUser(selected.id, pin)
+      const user = await loginUser(selected.id, pinValue)
       if (!user) { setError('PINが違います'); setPin(''); return }
       localStorage.setItem('user', JSON.stringify(user))
       onLogin(user)
     } finally { setLoading(false) }
   }
-
-  useEffect(() => {
-    if (mode === 'login' && pin.length === 4) submitLogin()
-  }, [pin])
 
   function handleRegistered(user) {
     setMembers(prev => [...prev, { id: user.id, name: user.name }])
@@ -177,9 +163,8 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
           <>
             <p className="login-sub">だれですか？</p>
             <div className="member-grid">
-              {members.map((m, i) => (
+              {members.map(m => (
                 <button key={m.id} className="member-btn" onClick={() => selectMember(m)}>
-                  <span className="member-avatar">{getAvatar(i)}</span>
                   <span className="member-name">{m.name}</span>
                 </button>
               ))}
@@ -193,13 +178,9 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
         {mode === 'login' && (
           <div className="pin-area">
             <button className="back-link" onClick={backToSelect}>← もどる</button>
-            <div className="pin-user">
-              <span className="pin-avatar">{getAvatar(members.findIndex(m => m.id === selected.id))}</span>
-              <span>{selected.name}</span>
-            </div>
+            <div className="pin-user"><span>{selected.name}</span></div>
             {error && <p className="pin-error">{error}</p>}
-            <PinPad pin={pin} onPress={d => { if (pin.length < 4) setPin(p => p + d) }}
-              onBack={() => setPin(p => p.slice(0, -1))} disabled={loading} />
+            <PinInput value={pin} onChange={setPin} onComplete={submitLogin} disabled={loading} autoFocus />
             {loading && <p className="pin-loading">確認中...</p>}
           </div>
         )}
@@ -332,7 +313,6 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
     <div className="app">
       <header className="app-header">
         <div className="header-user">
-          <span className="header-avatar">{user.name[0]}</span>
           <span className="header-name">{user.name}</span>
         </div>
         <div className="header-actions">

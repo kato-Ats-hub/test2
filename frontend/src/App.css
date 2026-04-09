@@ -133,8 +133,8 @@ body {
 }
 
 .member-btn {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 8px; padding: 18px 12px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px 12px;
   background: var(--surface2);
   border: 2px solid var(--border);
   border-radius: var(--radius);
@@ -147,8 +147,7 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-.member-avatar { font-size: 2.4rem; line-height: 1; }
-.member-name   { font-size: .85rem; font-weight: 700; color: var(--text); }
+.member-name { font-size: .95rem; font-weight: 700; color: var(--text); }
 
 /* 新規登録リンク */
 .btn-register-link {
@@ -209,46 +208,30 @@ body {
 .back-link:hover { text-decoration: underline; }
 
 .pin-user {
-  display: flex; align-items: center; gap: 10px;
   font-size: 1.2rem; font-weight: 800;
 }
-.pin-avatar { font-size: 2rem; }
 
-.pin-dots {
-  display: flex; gap: 14px; margin: 8px 0;
-}
-.pin-dot {
-  width: 18px; height: 18px;
-  border-radius: 50%;
+.pin-input {
+  width: 180px;
+  padding: 14px 20px;
   border: 2.5px solid var(--primary);
-  background: transparent;
-  transition: background .15s, transform .15s;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 1.8rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: .3em;
+  font-family: inherit;
+  transition: box-shadow .2s;
 }
-.pin-dot.filled {
-  background: var(--primary);
-  transform: scale(1.2);
+.pin-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(124,58,237,.2);
 }
 
 .pin-error   { color: var(--danger); font-size: .88rem; font-weight: 700; }
 .pin-loading { color: var(--text-sub); font-size: .88rem; }
-
-.numpad {
-  display: grid;
-  grid-template-columns: repeat(3, 70px);
-  gap: 10px;
-}
-.num-btn {
-  width: 70px; height: 70px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  background: var(--surface2);
-  color: var(--text);
-  font-size: 1.4rem; font-weight: 700;
-  cursor: pointer;
-  transition: background .15s, transform .15s;
-}
-.num-btn:hover:not(:disabled) { background: var(--primary); color: #fff; transform: scale(1.08); }
-.num-btn.invisible { visibility: hidden; }
 
 /* ════════════════════════════════════════
    メインアプリ
@@ -264,14 +247,7 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-.header-user { display: flex; align-items: center; gap: 10px; }
-.header-avatar {
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), #ec4899);
-  color: #fff; font-weight: 900; font-size: 1rem;
-  display: flex; align-items: center; justify-content: center;
-}
+.header-user { display: flex; align-items: center; }
 .header-name { font-weight: 800; font-size: 1rem; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 
