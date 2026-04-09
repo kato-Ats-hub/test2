@@ -1,6 +1,6 @@
 // ── Service Worker: バックグラウンド通知管理 ──────────────
 
-const CACHE = 'family-task-v1'
+const CACHE = 'family-task-v2'
 const pending = new Map() // taskId → timeoutId
 
 // ── インストール・アクティベート ──────────────────────────

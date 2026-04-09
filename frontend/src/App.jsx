@@ -264,6 +264,7 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   const [showModal, setShowModal] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [notifEnabled, setNotifEnabled] = useState(hasPermission)
+  const [notifLoading, setNotifLoading] = useState(false)
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
@@ -281,26 +282,33 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   }, [tasks])
 
   async function enableNotifications() {
-    // 通知API自体がない（iOSでPWAインストール前など）
-    if (!('Notification' in window)) {
-      alert('このブラウザは通知に対応していません。\niOSの場合はホーム画面に追加してからお試しください。')
-      return
-    }
-    // すでに拒否されている場合
-    if (Notification.permission === 'denied') {
-      alert('通知がブロックされています。\nブラウザの設定から通知を許可してください。')
-      return
-    }
+    if (notifLoading) return
+    setNotifLoading(true)
     try {
+      // 通知API自体がない（iOSでPWAインストール前など）
+      if (!('Notification' in window)) {
+        alert('このブラウザは通知に対応していません。\niOSの場合はホーム画面に追加してからお試しください。')
+        return
+      }
+      // すでに拒否されている場合
+      if (Notification.permission === 'denied') {
+        alert('通知がブロックされています。\nブラウザの設定から通知を許可してください。')
+        return
+      }
       const ok = await requestPermission()
       setNotifEnabled(ok)
-      if (!ok) return
+      if (!ok) {
+        alert('通知が許可されませんでした。')
+        return
+      }
       // バックグラウンド通知用プッシュ登録
       const sub = await subscribeToPush()
       if (sub) await savePushSubscription(user.id, sub, new Date().getTimezoneOffset())
       if (tasks.length > 0) scheduleNotifications(tasks)
     } catch (e) {
       alert('通知の設定に失敗しました: ' + e.message)
+    } finally {
+      setNotifLoading(false)
     }
   }
 
@@ -355,8 +363,8 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
         </div>
         <div className="header-actions">
           {!notifEnabled && (
-            <button className="btn btn-notif" onClick={enableNotifications} title="通知を有効にする">
-              🔔
+            <button className="btn btn-notif" onClick={enableNotifications} disabled={notifLoading} title="通知を有効にする">
+              {notifLoading ? '...' : '🔔 通知ON'}
             </button>
           )}
           <button className="theme-btn" onClick={onToggleTheme} title="テーマ切替">
