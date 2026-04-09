@@ -8,6 +8,7 @@ const STATUS_LABELS  = { pending: '未着手', in_progress: '進行中', complet
 const STATUS_COLORS  = { pending: 'status-pending', in_progress: 'status-progress', completed: 'status-done' }
 const NOTIFY_OPTIONS = [
   { value: 0,     label: '期限時刻に通知' },
+  { value: 30,    label: '30分前' },
   { value: 60,    label: '1時間前' },
   { value: 1440,  label: '1日前' },
   { value: 4320,  label: '3日前' },
@@ -404,6 +405,11 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   // カテゴリ一覧（重複除去）
   const categories = [...new Set(tasks.map(t => t.category).filter(Boolean))]
 
+  // 選択中カテゴリが消えたらリセット
+  useEffect(() => {
+    if (filterCat !== 'all' && !categories.includes(filterCat)) setFilterCat('all')
+  }, [categories.join(',')])
+
   // 表示タスク（絞り込み＋並び替え）
   const displayedTasks = tasks
     .filter(t => filterCat === 'all' || t.category === filterCat)
@@ -512,8 +518,8 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
         <div className="toolbar">
           <button
             className={`btn ${showCalendar ? 'btn-primary' : 'btn-ghost'} btn-sm`}
-            onClick={() => { setShowCalendar(v => !v); setCalendarDay(null) }}
-          >📅 カレンダー</button>
+            onClick={() => setShowCalendar(v => { if (v) setCalendarDay(null); return !v })}
+          >📅 {calendarDay ? calendarDay.slice(5).replace('-', '/') : 'カレンダー'}</button>
           <select className="sort-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
             <option value="newest">新しい順</option>
             <option value="oldest">古い順</option>
