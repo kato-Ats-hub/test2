@@ -265,6 +265,7 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   const [editingTask, setEditingTask] = useState(null)
   const [notifEnabled, setNotifEnabled] = useState(hasPermission)
   const [notifLoading, setNotifLoading] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
@@ -356,25 +357,37 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   }
 
   return (
-    <div className="app">
+    <div className="app" onClick={() => setMenuOpen(false)}>
       <header className="app-header">
-        <div className="header-user">
-          <span className="header-name">{user.name}</span>
-        </div>
+        <span className="header-name">{user.name}</span>
         <div className="header-actions">
           {!notifEnabled && (
-            <button className="btn btn-notif" onClick={enableNotifications} disabled={notifLoading} title="通知を有効にする">
-              {notifLoading ? '...' : '🔔 通知ON'}
+            <button className="btn btn-notif" onClick={e => { e.stopPropagation(); enableNotifications() }} disabled={notifLoading}>
+              {notifLoading ? '...' : '🔔'}
             </button>
           )}
-          <button className="theme-btn" onClick={onToggleTheme} title="テーマ切替">
+          <button className="theme-btn" onClick={onToggleTheme}>
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
           <button className="btn btn-primary" onClick={() => { setEditingTask(null); setShowModal(true) }}>
             ＋ 新規
           </button>
-          <button className="btn btn-ghost" onClick={logout}>ログアウト</button>
-          <button className="btn btn-danger" onClick={handleDeleteAccount}>アカウント削除</button>
+          {/* ハンバーガーメニュー */}
+          <div className="menu-wrap">
+            <button className="icon-btn menu-btn" onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}>
+              ⋮
+            </button>
+            {menuOpen && (
+              <div className="dropdown" onClick={e => e.stopPropagation()}>
+                <button className="dropdown-item" onClick={() => { setMenuOpen(false); logout() }}>
+                  ログアウト
+                </button>
+                <button className="dropdown-item danger" onClick={() => { setMenuOpen(false); handleDeleteAccount() }}>
+                  アカウント削除
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
