@@ -20,12 +20,18 @@ async function sb(path, options = {}) {
   })
 
   const text = await res.text()
-  if (!text.trim()) return null
+  if (!text.trim()) {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return null
+  }
 
   const data = JSON.parse(text)
-  if (data?.code && !Array.isArray(data)) {
-    throw new Error(data.message ?? 'Supabase エラー')
+
+  // 非2xx はすべてエラーとしてスロー（Supabase のエラー形式を問わず）
+  if (!res.ok) {
+    throw new Error(data?.message ?? data?.error_description ?? `HTTP ${res.status}: ${text}`)
   }
+
   return data
 }
 
