@@ -1,5 +1,7 @@
-// メインスレッドでタイマー管理（SWのsetTimeoutはSWが停止すると消えるため）
-const timers = new Map() // taskId → timeoutId
+const VAPID_PUBLIC_KEY = 'BOlxqrJmljowqfDmaAQ1f6J2uBzGAQE1ztKJoNtgHlxzfOIpLzgangQFE_iRMMc_WJD033Pk6qGQReGGOjMtpmY'
+
+// メインスレッドタイマー（アプリが開いてる間の通知）
+const timers = new Map()
 
 export async function requestPermission() {
   if (!('Notification' in window)) return false
@@ -12,11 +14,35 @@ export function hasPermission() {
   return typeof Notification !== 'undefined' && Notification.permission === 'granted'
 }
 
-// ── タスク一覧から通知をスケジュール ──────────────────────
+// ── Web Push サブスクリプション取得（バックグラウンド通知用）──
+function urlBase64ToUint8Array(base64) {
+  const pad = '='.repeat((4 - base64.length % 4) % 4)
+  const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/')
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+}
+
+export async function subscribeToPush() {
+  if (!('PushManager' in window)) return null
+  try {
+    const reg = await navigator.serviceWorker.ready
+    let sub = await reg.pushManager.getSubscription()
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      })
+    }
+    return sub.toJSON()
+  } catch (e) {
+    console.warn('Push subscription failed:', e)
+    return null
+  }
+}
+
+// ── アプリ開いてる間の通知（メインスレッドタイマー）──────
 export function scheduleNotifications(tasks) {
   if (!hasPermission()) return
 
-  // 既存タイマーをすべてリセット
   timers.forEach(id => clearTimeout(id))
   timers.clear()
 
@@ -49,7 +75,6 @@ export function scheduleNotifications(tasks) {
     })
 }
 
-// ── 単一タスクの通知をキャンセル ─────────────────────────
 export function cancelNotification(taskId) {
   if (timers.has(taskId)) {
     clearTimeout(timers.get(taskId))

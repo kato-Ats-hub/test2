@@ -9,7 +9,7 @@ class TaskController extends Controller
 {
     public function index()
     {
-        $tasks = Task::orderBy('created_at', 'desc')->get();
+        $tasks = auth()->user()->tasks()->orderBy('created_at', 'desc')->get();
         return view('tasks.index', compact('tasks'));
     }
 
@@ -27,18 +27,20 @@ class TaskController extends Controller
             'due_date'    => 'nullable|date',
         ]);
 
-        Task::create($validated);
+        auth()->user()->tasks()->create($validated);
 
         return redirect()->route('tasks.index')->with('success', 'タスクを作成しました。');
     }
 
     public function show(Task $task)
     {
+        if ($task->user_id !== auth()->id()) abort(403);
         return view('tasks.show', compact('task'));
     }
 
     public function edit(Task $task)
     {
+        if ($task->user_id !== auth()->id()) abort(403);
         return view('tasks.edit', compact('task'));
     }
 
@@ -51,6 +53,8 @@ class TaskController extends Controller
             'due_date'    => 'nullable|date',
         ]);
 
+        if ($task->user_id !== auth()->id()) abort(403);
+
         $task->update($validated);
 
         return redirect()->route('tasks.index')->with('success', 'タスクを更新しました。');
@@ -58,6 +62,8 @@ class TaskController extends Controller
 
     public function destroy(Task $task)
     {
+        if ($task->user_id !== auth()->id()) abort(403);
+
         $task->delete();
 
         return redirect()->route('tasks.index')->with('success', 'タスクを削除しました。');

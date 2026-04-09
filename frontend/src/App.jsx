@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getUsers, registerUser, loginUser, getTasks, createTask, updateTask, deleteTask, deleteMember } from './lib/supabase.js'
-import { requestPermission, hasPermission, scheduleNotifications, cancelNotification } from './lib/notifications.js'
+import { getUsers, registerUser, loginUser, getTasks, createTask, updateTask, deleteTask, deleteMember, savePushSubscription } from './lib/supabase.js'
+import { requestPermission, hasPermission, scheduleNotifications, cancelNotification, subscribeToPush } from './lib/notifications.js'
 import './App.css'
 
 // ── 定数 ──────────────────────────────────────────────
@@ -283,8 +283,22 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   async function enableNotifications() {
     const ok = await requestPermission()
     setNotifEnabled(ok)
-    if (ok && tasks.length > 0) scheduleNotifications(tasks)
+    if (ok) {
+      // バックグラウンド通知用プッシュ登録
+      const sub = await subscribeToPush()
+      if (sub) await savePushSubscription(user.id, sub, new Date().getTimezoneOffset())
+      if (tasks.length > 0) scheduleNotifications(tasks)
+    }
   }
+
+  // ログイン済みで既に許可済みの場合もプッシュ登録を更新
+  useEffect(() => {
+    if (hasPermission()) {
+      subscribeToPush().then(sub => {
+        if (sub) savePushSubscription(user.id, sub, new Date().getTimezoneOffset())
+      })
+    }
+  }, [user.id])
 
   function handleSave(saved, isEdit) {
     if (isEdit) setTasks(prev => prev.map(t => t.id === saved.id ? saved : t))

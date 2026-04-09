@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3">タスク一覧</h1>
+    <h1 class="h3">{{ auth()->user()->name }}さんのタスク</h1>
     <a href="{{ route('tasks.create') }}" class="btn btn-primary">+ 新規作成</a>
 </div>
 

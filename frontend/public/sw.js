@@ -66,6 +66,19 @@ self.addEventListener('message', event => {
   }
 })
 
+// ── サーバーからのプッシュ受信 ────────────────────────────
+self.addEventListener('push', event => {
+  const data = event.data?.json() ?? {}
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? '⏰ タスクの時間です', {
+      body:    data.body ?? '',
+      icon:    '/icon-192.png',
+      badge:   '/icon-192.png',
+      vibrate: [200, 100, 200],
+    })
+  )
+})
+
 // ── 通知クリック → アプリを開く ───────────────────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close()

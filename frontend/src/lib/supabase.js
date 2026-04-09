@@ -104,3 +104,18 @@ export async function deleteMember(userId) {
   await sb(`/tasks?user_id=eq.${userId}`, { method: 'DELETE' })
   return sb(`/members?id=eq.${userId}`, { method: 'DELETE' })
 }
+
+// ── プッシュ通知サブスクリプション ────────────────────────
+export async function savePushSubscription(userId, subscription, tzOffset) {
+  // endpoint をユニークキーとして upsert
+  return sb('/push_subscriptions', {
+    method: 'POST',
+    prefer: 'resolution=merge-duplicates',
+    body: {
+      user_id: userId,
+      endpoint: subscription.endpoint,
+      subscription,
+      tz_offset: tzOffset,
+    },
+  })
+}
