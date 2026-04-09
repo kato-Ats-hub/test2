@@ -54,7 +54,8 @@ export function scheduleNotifications(tasks) {
     .forEach(t => {
       const dateStr = t.due_date ?? todayStr
       const effectiveDate = dateStr < todayStr ? todayStr : dateStr
-      const notifyAt = new Date(`${effectiveDate}T${t.due_time}`)
+      const dueDatetime = new Date(`${effectiveDate}T${t.due_time}`)
+      const notifyAt = new Date(dueDatetime.getTime() - (t.notify_before ?? 0) * 60 * 1000)
       const delay = notifyAt - now
 
       if (delay <= 0 || delay > 24 * 60 * 60 * 1000) return

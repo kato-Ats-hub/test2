@@ -1,17 +1,29 @@
 // ── Service Worker: バックグラウンド通知管理 ──────────────
 
-const CACHE = 'family-task-v1'
+const CACHE = 'family-task-v3'
 const pending = new Map() // taskId → timeoutId
 
 // ── インストール・アクティベート ──────────────────────────
 self.addEventListener('install',  () => self.skipWaiting())
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()))
+self.addEventListener('activate', e => e.waitUntil(
+  caches.keys()
+    .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    .then(() => self.clients.claim())
+))
 
 // ── オフラインキャッシュ（基本ファイルのみ）─────────────────
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return
-  // Supabase API はキャッシュしない
   if (event.request.url.includes('supabase.co')) return
+
+  // HTML は常にネットワーク優先（キャッシュ古くなり防止）
+  const isHTML = event.request.headers.get('accept')?.includes('text/html')
+  if (isHTML) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    )
+    return
+  }
 
   event.respondWith(
     caches.match(event.request).then(cached => {

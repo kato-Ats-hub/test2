@@ -37,60 +37,70 @@ async function del(path: string) {
 }
 
 Deno.serve(async () => {
-  const now = new Date()
+  try {
+    const now = new Date()
 
-  // 全プッシュサブスクリプションを取得
-  const subs: Array<{
-    id: string
-    user_id: string
-    subscription: PushSubscriptionJSON
-    tz_offset: number
-  }> = await query('/push_subscriptions?select=*')
-
-  let sent = 0
-
-  for (const sub of subs) {
-    // tz_offset = JS の getTimezoneOffset() の値
-    // ユーザーのローカル時刻 = UTC - tz_offset（分）
-    const localNow    = new Date(now.getTime() - sub.tz_offset * 60 * 1000)
-    const localDate   = localNow.toISOString().slice(0, 10)   // YYYY-MM-DD
-    const localHHMM   = localNow.toISOString().slice(11, 16)  // HH:MM
-
-    // due_time が HH:MM で始まるタスクを検索（TIME型は HH:MM:SS で保存される場合も対応）
-    const encoded = encodeURIComponent(localHHMM + '%')
-    const tasks: Array<{
+    const subs: Array<{
       id: string
-      title: string
-      due_date: string | null
-      due_time: string
-    }> = await query(
-      `/tasks?user_id=eq.${sub.user_id}&status=neq.completed&due_time=like.${encoded}&select=id,title,due_date,due_time`
-    )
+      user_id: string
+      // deno-lint-ignore no-explicit-any
+      subscription: any
+      tz_offset: number
+    }> = await query('/push_subscriptions?select=*')
 
-    for (const task of tasks) {
-      // due_date が設定されている場合は日付も確認
-      if (task.due_date && task.due_date !== localDate) continue
+    let sent = 0
 
-      try {
-        await webpush.sendNotification(
-          sub.subscription as Parameters<typeof webpush.sendNotification>[0],
-          JSON.stringify({
-            title: '⏰ タスクの時間です',
-            body:  task.title,
-          }),
-        )
-        sent++
-      } catch (e: unknown) {
-        // 410 = 無効なサブスクリプション → 削除
-        if (typeof e === 'object' && e !== null && 'statusCode' in e && (e as { statusCode: number }).statusCode === 410) {
-          await del(`/push_subscriptions?id=eq.${sub.id}`)
+    for (const sub of subs) {
+      const localNow  = new Date(now.getTime() - sub.tz_offset * 60 * 1000)
+      const localDate = localNow.toISOString().slice(0, 10)
+      const localHHMM = localNow.toISOString().slice(11, 16)
+
+      const tasks: Array<{
+        id: string
+        title: string
+        due_date: string | null
+        due_time: string
+        notify_before: number | null
+      }> = await query(
+        `/tasks?user_id=eq.${sub.user_id}&status=neq.completed&due_time=not.is.null&select=id,title,due_date,due_time,notify_before`
+      )
+
+      for (const task of tasks) {
+        if (!task.due_time) continue
+        const taskDueDate = task.due_date ?? localDate
+        const effectiveDueDate = taskDueDate < localDate ? localDate : taskDueDate
+        const dueDatetimeLocal = new Date(`${effectiveDueDate}T${task.due_time}`)
+        const notifyAtLocal = new Date(dueDatetimeLocal.getTime() - (task.notify_before ?? 0) * 60 * 1000)
+        const notifyDate = notifyAtLocal.toISOString().slice(0, 10)
+        const notifyHHMM = notifyAtLocal.toISOString().slice(11, 16)
+        if (notifyDate !== localDate || notifyHHMM !== localHHMM) continue
+
+        try {
+          await webpush.sendNotification(
+            sub.subscription,
+            JSON.stringify({
+              title: '⏰ タスクの時間です',
+              body:  task.title,
+            }),
+          )
+          sent++
+        } catch (e: unknown) {
+          const err = e as { statusCode?: number }
+          if (err.statusCode === 410) {
+            await del(`/push_subscriptions?id=eq.${sub.id}`)
+          }
         }
       }
     }
-  }
 
-  return new Response(
-    JSON.stringify({ ok: true, subscribers: subs.length, sent }),
-    { headers: { 'Content-Type': 'application/json' } },
-  )
+    return new Response(
+      JSON.stringify({ ok: true, subscribers: subs.length, sent }),
+      { headers: { 'Content-Type': 'application/json' } },
+    )
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ ok: false, error: String(e) }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    )
+  }
 })

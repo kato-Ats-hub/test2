@@ -4,9 +4,16 @@ import { requestPermission, hasPermission, scheduleNotifications, cancelNotifica
 import './App.css'
 
 // ── 定数 ──────────────────────────────────────────────
-const STATUS_LABELS = { pending: '未着手', in_progress: '進行中', completed: '完了' }
-const STATUS_COLORS = { pending: 'status-pending', in_progress: 'status-progress', completed: 'status-done' }
-const EMPTY_FORM = { title: '', description: '', status: 'pending', due_date: '', due_time: '' }
+const STATUS_LABELS  = { pending: '未着手', in_progress: '進行中', completed: '完了' }
+const STATUS_COLORS  = { pending: 'status-pending', in_progress: 'status-progress', completed: 'status-done' }
+const NOTIFY_OPTIONS = [
+  { value: 0,     label: '期限時刻に通知' },
+  { value: 60,    label: '1時間前' },
+  { value: 1440,  label: '1日前' },
+  { value: 4320,  label: '3日前' },
+  { value: 10080, label: '1週間前' },
+]
+const EMPTY_FORM = { title: '', description: '', status: 'pending', due_date: '', due_time: '', notify_before: 0, category: '' }
 
 // ── PIN入力欄（キーボード／テンキー） ─────────────────
 function PinInput({ value, onChange, onComplete, placeholder = '••••', disabled, autoFocus = false }) {
@@ -194,15 +201,66 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
 }
 
 // ══════════════════════════════════════════════════════
+// カレンダー
+// ══════════════════════════════════════════════════════
+function CalendarView({ tasks, selectedDay, onSelectDay }) {
+  const today = new Date()
+  const [viewDate, setViewDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
+  const year  = viewDate.getFullYear()
+  const month = viewDate.getMonth()
+
+  const taskDays = new Set(tasks.filter(t => t.due_date).map(t => t.due_date))
+  const todayStr  = today.toISOString().slice(0, 10)
+  const firstDow  = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  const cells = [
+    ...Array(firstDow).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => {
+      const d = i + 1
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      return { d, dateStr }
+    }),
+  ]
+
+  return (
+    <div className="calendar">
+      <div className="cal-nav">
+        <button className="icon-btn" onClick={() => setViewDate(new Date(year, month - 1, 1))}>‹</button>
+        <span className="cal-title">{year}年{month + 1}月</span>
+        <button className="icon-btn" onClick={() => setViewDate(new Date(year, month + 1, 1))}>›</button>
+      </div>
+      <div className="cal-grid">
+        {['日','月','火','水','木','金','土'].map(d => (
+          <div key={d} className="cal-dow">{d}</div>
+        ))}
+        {cells.map((cell, i) => cell ? (
+          <div
+            key={i}
+            className={['cal-day', taskDays.has(cell.dateStr) ? 'has-task' : '', cell.dateStr === todayStr ? 'today' : '', cell.dateStr === selectedDay ? 'cal-selected' : ''].filter(Boolean).join(' ')}
+            onClick={() => onSelectDay(cell.dateStr === selectedDay ? null : cell.dateStr)}
+          >
+            <span>{cell.d}</span>
+            {taskDays.has(cell.dateStr) && <span className="cal-dot" />}
+          </div>
+        ) : <div key={i} className="cal-empty" />)}
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════
 // タスクフォーム（モーダル）
 // ══════════════════════════════════════════════════════
 function TaskModal({ task, userId, onSave, onClose }) {
   const [form, setForm] = useState(task ? {
-    title: task.title,
-    description: task.description ?? '',
-    status: task.status,
-    due_date: task.due_date ?? '',
-    due_time: task.due_time ?? '',
+    title:         task.title,
+    description:   task.description ?? '',
+    status:        task.status,
+    due_date:      task.due_date ?? '',
+    due_time:      task.due_time ?? '',
+    notify_before: task.notify_before ?? 0,
+    category:      task.category ?? '',
   } : EMPTY_FORM)
   const [saving, setSaving] = useState(false)
 
@@ -227,6 +285,10 @@ function TaskModal({ task, userId, onSave, onClose }) {
             <input type="text" value={form.title} onChange={e => setForm({...form, title: e.target.value})}
               required maxLength={255} placeholder="タスクのタイトル" />
           </label>
+          <label>カテゴリ
+            <input type="text" value={form.category} onChange={e => setForm({...form, category: e.target.value})}
+              maxLength={30} placeholder="仕事・買い物など（任意）" />
+          </label>
           <label>メモ
             <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
               rows={3} placeholder="詳細（任意）" />
@@ -237,12 +299,20 @@ function TaskModal({ task, userId, onSave, onClose }) {
             </select>
           </label>
           <label>期限日
-            <input type="date" value={form.due_date ?? ''} onChange={e => setForm({...form, due_date: e.target.value})} />
+            <input type="date" value={form.due_date ?? ''} onChange={e => setForm({...form, due_date: e.target.value, due_time: '', notify_before: 0})} />
           </label>
-          <label>
-            通知時刻 <span className="label-hint">（設定するとその時間に通知）</span>
-            <input type="time" value={form.due_time ?? ''} onChange={e => setForm({...form, due_time: e.target.value})} />
-          </label>
+          {form.due_date && (
+            <label>期限時刻
+              <input type="time" value={form.due_time ?? ''} onChange={e => setForm({...form, due_time: e.target.value, notify_before: 0})} />
+            </label>
+          )}
+          {form.due_date && form.due_time && (
+            <label>通知タイミング
+              <select value={form.notify_before} onChange={e => setForm({...form, notify_before: Number(e.target.value)})}>
+                {NOTIFY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </label>
+          )}
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose}>キャンセル</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -267,6 +337,10 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   const [notifLoading, setNotifLoading] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [showNotifBanner, setShowNotifBanner] = useState(false)
+  const [sortBy, setSortBy]             = useState('newest')
+  const [filterCat, setFilterCat]       = useState('all')
+  const [calendarDay, setCalendarDay]   = useState(null)
+  const [showCalendar, setShowCalendar] = useState(false)
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
@@ -322,6 +396,29 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
       })
     }
   }, [user.id])
+
+  // カテゴリ一覧（重複除去）
+  const categories = [...new Set(tasks.map(t => t.category).filter(Boolean))]
+
+  // 表示タスク（絞り込み＋並び替え）
+  const displayedTasks = tasks
+    .filter(t => filterCat === 'all' || t.category === filterCat)
+    .filter(t => !calendarDay || t.due_date === calendarDay)
+    .sort((a, b) => {
+      if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at)
+      if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at)
+      if (sortBy === 'due') {
+        if (!a.due_date && !b.due_date) return 0
+        if (!a.due_date) return 1
+        if (!b.due_date) return -1
+        return a.due_date.localeCompare(b.due_date)
+      }
+      if (sortBy === 'status') {
+        const o = { pending: 0, in_progress: 1, completed: 2 }
+        return o[a.status] - o[b.status]
+      }
+      return 0
+    })
 
   function handleSave(saved, isEdit) {
     if (isEdit) setTasks(prev => prev.map(t => t.id === saved.id ? saved : t))
@@ -407,26 +504,63 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
       )}
 
       <main className="main">
+        {/* カレンダートグル＋ソート */}
+        <div className="toolbar">
+          <button
+            className={`btn ${showCalendar ? 'btn-primary' : 'btn-ghost'} btn-sm`}
+            onClick={() => { setShowCalendar(v => !v); setCalendarDay(null) }}
+          >📅 カレンダー</button>
+          <select className="sort-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+            <option value="newest">新しい順</option>
+            <option value="oldest">古い順</option>
+            <option value="due">期限日順</option>
+            <option value="status">ステータス順</option>
+          </select>
+        </div>
+
+        {/* カレンダー */}
+        {showCalendar && (
+          <CalendarView tasks={tasks} selectedDay={calendarDay} onSelectDay={setCalendarDay} />
+        )}
+
+        {/* カテゴリフィルタータブ */}
+        {categories.length > 0 && (
+          <div className="cat-tabs">
+            {['all', ...categories].map(cat => (
+              <button
+                key={cat}
+                className={`cat-tab ${filterCat === cat ? 'active' : ''}`}
+                onClick={() => setFilterCat(cat)}
+              >{cat === 'all' ? 'すべて' : cat}</button>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <div className="loading-wrap"><div className="spinner" /></div>
-        ) : tasks.length === 0 ? (
+        ) : displayedTasks.length === 0 ? (
           <div className="empty-state">
-            <p className="empty-emoji">📭</p>
-            <p>タスクがありません</p>
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>最初のタスクを追加</button>
+            <p className="empty-emoji">{tasks.length === 0 ? '📭' : '🔍'}</p>
+            <p>{tasks.length === 0 ? 'タスクがありません' : '該当するタスクがありません'}</p>
+            {tasks.length === 0 && (
+              <button className="btn btn-primary" onClick={() => setShowModal(true)}>最初のタスクを追加</button>
+            )}
           </div>
         ) : (
           <ul className="task-list">
-            {tasks.map(task => (
+            {displayedTasks.map(task => (
               <li key={task.id} className="task-card">
                 <div className="task-body">
-                  <span className={`status-badge ${STATUS_COLORS[task.status]}`}>
-                    {STATUS_LABELS[task.status]}
-                  </span>
+                  <div className="task-badges">
+                    <span className={`status-badge ${STATUS_COLORS[task.status]}`}>{STATUS_LABELS[task.status]}</span>
+                    {task.category && <span className="cat-badge">{task.category}</span>}
+                  </div>
                   <p className="task-title">{task.title}</p>
                   {task.description && <p className="task-desc">{task.description}</p>}
-                  {task.due_date && <p className="task-due">📅 {task.due_date}</p>}
-                  {task.due_time && <p className="task-time">🔔 {task.due_time.slice(0,5)}</p>}
+                  {task.due_date && <p className="task-due">📅 {task.due_date}{task.due_time && ` ${task.due_time.slice(0,5)}`}</p>}
+                  {task.due_time && task.notify_before > 0 && (
+                    <p className="task-time">🔔 {NOTIFY_OPTIONS.find(o => o.value === task.notify_before)?.label ?? ''}に通知</p>
+                  )}
                 </div>
                 <div className="task-controls">
                   <select className="status-select" value={task.status}
