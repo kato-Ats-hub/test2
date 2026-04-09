@@ -281,13 +281,26 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   }, [tasks])
 
   async function enableNotifications() {
-    const ok = await requestPermission()
-    setNotifEnabled(ok)
-    if (ok) {
+    // 通知API自体がない（iOSでPWAインストール前など）
+    if (!('Notification' in window)) {
+      alert('このブラウザは通知に対応していません。\niOSの場合はホーム画面に追加してからお試しください。')
+      return
+    }
+    // すでに拒否されている場合
+    if (Notification.permission === 'denied') {
+      alert('通知がブロックされています。\nブラウザの設定から通知を許可してください。')
+      return
+    }
+    try {
+      const ok = await requestPermission()
+      setNotifEnabled(ok)
+      if (!ok) return
       // バックグラウンド通知用プッシュ登録
       const sub = await subscribeToPush()
       if (sub) await savePushSubscription(user.id, sub, new Date().getTimezoneOffset())
       if (tasks.length > 0) scheduleNotifications(tasks)
+    } catch (e) {
+      alert('通知の設定に失敗しました: ' + e.message)
     }
   }
 
