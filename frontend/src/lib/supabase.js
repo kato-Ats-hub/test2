@@ -42,22 +42,35 @@ async function hashPin(pin) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
+async function hashSecret(secret) {
+  const data = new TextEncoder().encode('family-task-secret:' + secret.toLowerCase().trim())
+  const buf  = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 // ── ユーザー操作 ───────────────────────────────────────
 export async function getUsers() {
   const rows = await sb('/members?select=id,name&order=created_at')
   return Array.isArray(rows) ? rows : []
 }
 
-export async function registerUser(name, pin) {
-  const pin_hash = await hashPin(pin)
-  // まず INSERT（レスポンスボディは使わない）
-  await sb('/members', {
-    method: 'POST',
-    body: { name, pin_hash },
-  })
-  // 挿入したユーザーを GET で取得
+export async function registerUser(name, pin, secret) {
+  const pin_hash    = await hashPin(pin)
+  const secret_hash = await hashSecret(secret)
+  await sb('/members', { method: 'POST', body: { name, pin_hash, secret_hash } })
   const rows = await sb(`/members?name=eq.${encodeURIComponent(name)}&select=id,name`)
   return Array.isArray(rows) ? rows[0] ?? null : null
+}
+
+export async function verifySecret(userId, secret) {
+  const secret_hash = await hashSecret(secret)
+  const rows = await sb(`/members?id=eq.${userId}&secret_hash=eq.${secret_hash}&select=id,name`)
+  return Array.isArray(rows) ? rows[0] ?? null : null
+}
+
+export async function resetPin(userId, newPin) {
+  const pin_hash = await hashPin(newPin)
+  await sb(`/members?id=eq.${userId}`, { method: 'PATCH', body: { pin_hash } })
 }
 
 export async function loginUser(userId, pin) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getUsers, registerUser, loginUser, getTasks, createTask, updateTask, deleteTask, deleteMember, savePushSubscription } from './lib/supabase.js'
+import { getUsers, registerUser, loginUser, verifySecret, resetPin, getTasks, createTask, updateTask, deleteTask, deleteMember, savePushSubscription } from './lib/supabase.js'
 import { requestPermission, hasPermission, scheduleNotifications, cancelNotification, subscribeToPush } from './lib/notifications.js'
 import { getDayType } from './lib/holidays.js'
 import './App.css'
@@ -47,13 +47,11 @@ function RegisterScreen({ onLogin, onCancel }) {
   const [name, setName]       = useState('')
   const [pin, setPin]         = useState('')
   const [confirm, setConfirm] = useState('')
+  const [secret, setSecret]   = useState('')
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
 
-  function handlePinComplete(v) {
-    setPin(v)
-    setStep('confirm')
-  }
+  function handlePinComplete(v) { setPin(v); setStep('confirm') }
 
   function handleConfirmComplete(v) {
     setConfirm(v)
@@ -61,14 +59,15 @@ function RegisterScreen({ onLogin, onCancel }) {
       setError('PINが一致しません。もう一度試してください')
       setPin(''); setConfirm(''); setStep('pin')
     } else {
-      submit()
+      setStep('secret')
     }
   }
 
   async function submit() {
+    if (!secret.trim()) { setError('合言葉を入力してください'); return }
     setLoading(true); setError('')
     try {
-      const user = await registerUser(name.trim(), pin)
+      const user = await registerUser(name.trim(), pin, secret.trim())
       if (!user) throw new Error('登録に失敗しました')
       localStorage.setItem('user', JSON.stringify(user))
       onLogin(user)
@@ -85,23 +84,12 @@ function RegisterScreen({ onLogin, onCancel }) {
 
       {step === 'name' && (
         <div className="reg-name-wrap">
-          <input
-            className="reg-name-input"
-            type="text"
-            placeholder="名前を入力してください"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            maxLength={20}
-            autoFocus
-            onKeyDown={e => e.key === 'Enter' && name.trim() && (setError(''), setStep('pin'))}
-          />
+          <input className="reg-name-input" type="text" placeholder="名前を入力してください"
+            value={name} onChange={e => setName(e.target.value)} maxLength={20} autoFocus
+            onKeyDown={e => e.key === 'Enter' && name.trim() && (setError(''), setStep('pin'))} />
           {error && <p className="pin-error">{error}</p>}
-          <button
-            className="btn btn-primary"
-            style={{ marginTop: 12, width: '100%' }}
-            disabled={!name.trim()}
-            onClick={() => { setError(''); setStep('pin') }}
-          >次へ →</button>
+          <button className="btn btn-primary" style={{ marginTop: 12, width: '100%' }}
+            disabled={!name.trim()} onClick={() => { setError(''); setStep('pin') }}>次へ →</button>
         </div>
       )}
 
@@ -121,7 +109,98 @@ function RegisterScreen({ onLogin, onCancel }) {
         </>
       )}
 
-      {loading && <p className="pin-loading">登録中...</p>}
+      {step === 'secret' && (
+        <div className="reg-name-wrap">
+          <p className="pin-step-label">合言葉を設定してください</p>
+          <p className="pin-loading" style={{ textAlign: 'center', fontSize: '.8rem' }}>
+            PIN忘れ時のリセットに使います
+          </p>
+          <input className="reg-name-input" type="text" placeholder="例：好きな食べ物など"
+            value={secret} onChange={e => setSecret(e.target.value)} maxLength={50} autoFocus
+            onKeyDown={e => e.key === 'Enter' && secret.trim() && submit()} />
+          {error && <p className="pin-error">{error}</p>}
+          <button className="btn btn-primary" style={{ marginTop: 12, width: '100%' }}
+            disabled={!secret.trim() || loading} onClick={submit}>
+            {loading ? '登録中...' : '登録する'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════
+// PINリセット画面
+// ══════════════════════════════════════════════════════
+function ResetPinScreen({ member, onSuccess, onCancel }) {
+  const [step, setStep]     = useState('secret')
+  const [secret, setSecret] = useState('')
+  const [pin, setPin]       = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError]   = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSecretSubmit() {
+    if (!secret.trim()) return
+    setLoading(true); setError('')
+    try {
+      const ok = await verifySecret(member.id, secret.trim())
+      if (!ok) { setError('合言葉が違います'); return }
+      setStep('pin')
+    } finally { setLoading(false) }
+  }
+
+  function handlePinComplete(v) { setPin(v); setStep('confirm') }
+
+  async function handleConfirmComplete(v) {
+    setConfirm(v)
+    if (v !== pin) {
+      setError('PINが一致しません'); setPin(''); setConfirm(''); setStep('pin'); return
+    }
+    setLoading(true); setError('')
+    try {
+      await resetPin(member.id, pin)
+      onSuccess(member)
+    } catch (e) {
+      setError(e.message ?? 'リセットに失敗しました')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div className="pin-area">
+      <button className="back-link" onClick={onCancel}>← もどる</button>
+      <div className="pin-user"><span>{member.name} のPINリセット</span></div>
+
+      {step === 'secret' && (
+        <div className="reg-name-wrap">
+          <p className="pin-step-label">登録時の合言葉を入力してください</p>
+          <input className="reg-name-input" type="text" placeholder="合言葉"
+            value={secret} onChange={e => setSecret(e.target.value)} autoFocus
+            onKeyDown={e => e.key === 'Enter' && handleSecretSubmit()} />
+          {error && <p className="pin-error">{error}</p>}
+          <button className="btn btn-primary" style={{ marginTop: 12, width: '100%' }}
+            disabled={!secret.trim() || loading} onClick={handleSecretSubmit}>
+            {loading ? '確認中...' : '次へ →'}
+          </button>
+        </div>
+      )}
+
+      {step === 'pin' && (
+        <>
+          <p className="pin-step-label">新しい4桁のPINを決めてください</p>
+          {error && <p className="pin-error">{error}</p>}
+          <PinInput value={pin} onChange={setPin} onComplete={handlePinComplete} autoFocus />
+        </>
+      )}
+
+      {step === 'confirm' && (
+        <>
+          <p className="pin-step-label">もう一度入力してください</p>
+          {error && <p className="pin-error">{error}</p>}
+          <PinInput value={confirm} onChange={setConfirm} onComplete={handleConfirmComplete} disabled={loading} autoFocus />
+          {loading && <p className="pin-loading">更新中...</p>}
+        </>
+      )}
     </div>
   )
 }
@@ -210,7 +289,15 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
             {error && <p className="pin-error">{error}</p>}
             <PinInput value={pin} onChange={setPin} onComplete={submitLogin} disabled={loading} autoFocus />
             {loading && <p className="pin-loading">確認中...</p>}
+            <button className="back-link" style={{ fontSize: '.8rem', opacity: .7 }}
+              onClick={() => { setMode('reset'); setPin(''); setError('') }}>
+              PINを忘れた場合
+            </button>
           </div>
+        )}
+
+        {mode === 'reset' && (
+          <ResetPinScreen member={selected} onSuccess={handleRegistered} onCancel={backToSelect} />
         )}
 
         {mode === 'register' && (
