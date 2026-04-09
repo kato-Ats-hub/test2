@@ -266,6 +266,7 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   const [notifEnabled, setNotifEnabled] = useState(hasPermission)
   const [notifLoading, setNotifLoading] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [showNotifBanner, setShowNotifBanner] = useState(false)
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
@@ -293,7 +294,7 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
       }
       // すでに拒否されている場合
       if (Notification.permission === 'denied') {
-        alert('通知がブロックされています。\nブラウザの設定から通知を許可してください。')
+        setShowNotifBanner(true)
         return
       }
       const ok = await requestPermission()
@@ -390,6 +391,20 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
           </div>
         </div>
       </header>
+
+      {showNotifBanner && (
+        <div className="notif-banner">
+          <div className="notif-banner-body">
+            <span>🔕 通知がブロックされています</span>
+            <p>ブラウザの設定から通知を許可してください。</p>
+            <p className="notif-banner-hint">
+              iOSの場合: Safari のアドレスバー横「AA」→「Webサイトの設定」→「通知」→「許可」<br />
+              Androidの場合: アドレスバー横の🔒→「通知」→「許可」
+            </p>
+          </div>
+          <button className="notif-banner-close" onClick={() => setShowNotifBanner(false)}>✕</button>
+        </div>
+      )}
 
       <main className="main">
         {loading ? (
