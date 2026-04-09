@@ -345,6 +345,7 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
   const [showNotifBanner, setShowNotifBanner] = useState(false)
   const [sortBy, setSortBy]             = useState('newest')
   const [filterCat, setFilterCat]       = useState('all')
+  const [hideCompleted, setHideCompleted] = useState(false)
   const [calendarDay, setCalendarDay]   = useState(null)
   const [showCalendar, setShowCalendar] = useState(false)
 
@@ -413,6 +414,7 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
 
   // 表示タスク（絞り込み＋並び替え）
   const displayedTasks = tasks
+    .filter(t => !hideCompleted || t.status !== 'completed')
     .filter(t => filterCat === 'all' || t.category === filterCat)
     .filter(t => !calendarDay || t.due_date === calendarDay)
     .sort((a, b) => {
@@ -539,6 +541,10 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
             className={`btn ${showCalendar ? 'btn-primary' : 'btn-ghost'} btn-sm`}
             onClick={() => setShowCalendar(v => { if (v) setCalendarDay(null); return !v })}
           >📅 {calendarDay ? calendarDay.slice(5).replace('-', '/') : 'カレンダー'}</button>
+          <button
+            className={`btn btn-sm ${hideCompleted ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setHideCompleted(v => !v)}
+          >{hideCompleted ? '完了を表示' : '完了を非表示'}</button>
           <select className="sort-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
             <option value="newest">新しい順</option>
             <option value="oldest">古い順</option>
