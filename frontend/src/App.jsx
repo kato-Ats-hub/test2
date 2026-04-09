@@ -446,7 +446,25 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
 
   async function handleStatusChange(task, newStatus) {
     const updated = await updateTask(task.id, user.id, { ...task, status: newStatus })
-    if (updated) setTasks(prev => prev.map(t => t.id === task.id ? updated : t))
+    if (!updated) return
+
+    const newTasks = tasks.map(t => t.id === task.id ? updated : t)
+    setTasks(newTasks)
+
+    // 当日タスクがすべて完了になったか確認
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const todayTasks = newTasks.filter(t => t.due_date === todayStr)
+    if (
+      todayTasks.length > 0 &&
+      newStatus === 'completed' &&
+      todayTasks.every(t => t.status === 'completed')
+    ) {
+      if (confirm('今日のタスクがすべて完了しました！\nタスクを削除しますか？')) {
+        await Promise.all(todayTasks.map(t => deleteTask(t.id, user.id)))
+        todayTasks.forEach(t => cancelNotification(t.id))
+        setTasks(prev => prev.filter(t => t.due_date !== todayStr))
+      }
+    }
   }
 
   function logout() {
