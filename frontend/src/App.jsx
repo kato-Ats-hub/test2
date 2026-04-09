@@ -279,40 +279,44 @@ function TaskModal({ task, userId, onSave, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <h2>{task ? '✏️ タスクを編集' : '➕ 新しいタスク'}</h2>
-        <form onSubmit={handleSubmit}>
-          <label>タイトル <span className="req">*</span>
-            <input type="text" value={form.title} onChange={e => setForm({...form, title: e.target.value})}
-              required maxLength={255} placeholder="タスクのタイトル" />
-          </label>
-          <label>カテゴリ
-            <input type="text" value={form.category} onChange={e => setForm({...form, category: e.target.value})}
-              maxLength={30} placeholder="仕事・買い物など（任意）" />
-          </label>
-          <label>メモ
-            <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
-              rows={3} placeholder="詳細（任意）" />
-          </label>
-          <label>ステータス
-            <select value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
-              {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </label>
-          <label>期限日
-            <input type="date" value={form.due_date ?? ''} onChange={e => setForm({...form, due_date: e.target.value, due_time: '', notify_before: 0})} />
-          </label>
-          {form.due_date && (
-            <label>期限時刻
-              <input type="time" value={form.due_time ?? ''} onChange={e => setForm({...form, due_time: e.target.value, notify_before: 0})} />
+        <div className="modal-header">
+          <h2>{task ? '✏️ タスクを編集' : '➕ 新しいタスク'}</h2>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: 'contents' }}>
+          <div className="modal-body">
+            <label>タイトル <span className="req">*</span>
+              <input type="text" value={form.title} onChange={e => setForm({...form, title: e.target.value})}
+                required maxLength={255} placeholder="タスクのタイトル" />
             </label>
-          )}
-          {form.due_date && form.due_time && (
-            <label>通知タイミング
-              <select value={form.notify_before} onChange={e => setForm({...form, notify_before: Number(e.target.value)})}>
-                {NOTIFY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            <label>カテゴリ
+              <input type="text" value={form.category} onChange={e => setForm({...form, category: e.target.value})}
+                maxLength={30} placeholder="仕事・買い物など（任意）" />
+            </label>
+            <label>メモ
+              <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
+                rows={2} placeholder="詳細（任意）" />
+            </label>
+            <label>ステータス
+              <select value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+                {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
-          )}
+            <label>期限日
+              <input type="date" value={form.due_date ?? ''} onChange={e => setForm({...form, due_date: e.target.value, due_time: '', notify_before: 0})} />
+            </label>
+            {form.due_date && (
+              <label>期限時刻
+                <input type="time" value={form.due_time ?? ''} onChange={e => setForm({...form, due_time: e.target.value, notify_before: 0})} />
+              </label>
+            )}
+            {form.due_date && form.due_time && (
+              <label>通知タイミング
+                <select value={form.notify_before} onChange={e => setForm({...form, notify_before: Number(e.target.value)})}>
+                  {NOTIFY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose}>キャンセル</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
