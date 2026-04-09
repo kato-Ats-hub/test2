@@ -23,12 +23,9 @@ async function sb(path, options = {}) {
   if (!text.trim()) return null
 
   const data = JSON.parse(text)
-
-  // Supabase エラーレスポンス（code/message 形式）をスロー
   if (data?.code && !Array.isArray(data)) {
     throw new Error(data.message ?? 'Supabase エラー')
   }
-
   return data
 }
 
@@ -41,17 +38,20 @@ async function hashPin(pin) {
 
 // ── ユーザー操作 ───────────────────────────────────────
 export async function getUsers() {
-  return sb('/users?select=id,name&order=created_at')
+  const rows = await sb('/users?select=id,name&order=created_at')
+  return Array.isArray(rows) ? rows : []
 }
 
 export async function registerUser(name, pin) {
   const pin_hash = await hashPin(pin)
-  const rows = await sb('/users?select=id,name', {
+  // まず INSERT（レスポンスボディは使わない）
+  await sb('/users', {
     method: 'POST',
-    prefer: 'return=representation',
     body: { name, pin_hash },
   })
-  return Array.isArray(rows) ? rows[0] : null
+  // 挿入したユーザーを GET で取得
+  const rows = await sb(`/users?name=eq.${encodeURIComponent(name)}&select=id,name`)
+  return Array.isArray(rows) ? rows[0] ?? null : null
 }
 
 export async function loginUser(userId, pin) {
@@ -67,21 +67,26 @@ export async function getTasks(userId) {
 }
 
 export async function createTask(userId, task) {
-  const rows = await sb('/tasks?select=*', {
-    method: 'POST',
-    prefer: 'return=representation',
-    body: { ...task, user_id: userId },
-  })
-  return Array.isArray(rows) ? rows[0] : null
+  // 空文字を null に変換してから INSERT
+  const body = Object.fromEntries(
+    Object.entries({ ...task, user_id: userId })
+      .map(([k, v]) => [k, v === '' ? null : v])
+  )
+  await sb('/tasks', { method: 'POST', body })
+  // 最新のタスクを GET で取得
+  const rows = await sb(`/tasks?user_id=eq.${userId}&order=created_at.desc&limit=1&select=*`)
+  return Array.isArray(rows) ? rows[0] ?? null : null
 }
 
 export async function updateTask(taskId, userId, task) {
-  const rows = await sb(`/tasks?id=eq.${taskId}&user_id=eq.${userId}&select=*`, {
-    method: 'PATCH',
-    prefer: 'return=representation',
-    body: { ...task, updated_at: new Date().toISOString() },
-  })
-  return Array.isArray(rows) ? rows[0] : null
+  const body = Object.fromEntries(
+    Object.entries({ ...task, updated_at: new Date().toISOString() })
+      .map(([k, v]) => [k, v === '' ? null : v])
+  )
+  await sb(`/tasks?id=eq.${taskId}&user_id=eq.${userId}`, { method: 'PATCH', body })
+  // 更新後のタスクを GET で取得
+  const rows = await sb(`/tasks?id=eq.${taskId}&select=*`)
+  return Array.isArray(rows) ? rows[0] ?? null : null
 }
 
 export async function deleteTask(taskId, userId) {
