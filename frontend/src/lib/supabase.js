@@ -1,5 +1,5 @@
-const BASE_URL = import.meta.env.VITE_SUPABASE_URL
-const KEY      = import.meta.env.VITE_SUPABASE_KEY
+const BASE_URL = 'https://iychjecqpilmbblvgkqb.supabase.co'
+const KEY      = 'sb_publishable_wPdANaLMm7c08Gc6IUEM_w_KclbnXWH'
 
 // ── Supabase REST ヘルパー ─────────────────────────────
 async function sb(path, options = {}) {
