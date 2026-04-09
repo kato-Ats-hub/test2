@@ -159,8 +159,27 @@ function LoginScreen({ onLogin, theme, onToggleTheme }) {
     onLogin(user)
   }
 
+  const SLIDES = [
+    'https://images.unsplash.com/photo-1493770348161-369560ae357d?w=1280&q=80&fit=crop', // 朝食・日常
+    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1280&q=80&fit=crop', // 食事シーン
+    'https://images.unsplash.com/photo-1423666639041-f56000c27a9a?w=1280&q=80&fit=crop', // 電話シーン
+    'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=1280&q=80&fit=crop', // 街の風景
+  ]
+
   return (
     <div className="login-bg">
+      {/* スライドショー背景 */}
+      <div className="login-slideshow">
+        {SLIDES.map((src, i) => (
+          <div
+            key={i}
+            className="login-slide"
+            style={{ backgroundImage: `url(${src})`, animationDelay: `${i * 5}s` }}
+          />
+        ))}
+      </div>
+      <div className="login-overlay" />
+
       <button className="theme-btn login-theme-btn" onClick={onToggleTheme} title="テーマ切替">
         {theme === 'dark' ? '☀️' : '🌙'}
       </button>
