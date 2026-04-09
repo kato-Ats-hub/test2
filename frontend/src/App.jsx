@@ -46,22 +46,11 @@ function RegisterScreen({ onLogin, onCancel }) {
   const [step, setStep]       = useState('name')
   const [name, setName]       = useState('')
   const [pin, setPin]         = useState('')
-  const [confirm, setConfirm] = useState('')
   const [secret, setSecret]   = useState('')
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
 
-  function handlePinComplete(v) { setPin(v); setStep('confirm') }
-
-  function handleConfirmComplete(v) {
-    setConfirm(v)
-    if (v !== pin) {
-      setError('PINが一致しません。もう一度試してください')
-      setPin(''); setConfirm(''); setStep('pin')
-    } else {
-      setStep('secret')
-    }
-  }
+  function handlePinComplete(v) { setPin(v); setStep('secret') }
 
   async function submit() {
     if (!secret.trim()) { setError('合言葉を入力してください'); return }
@@ -73,7 +62,7 @@ function RegisterScreen({ onLogin, onCancel }) {
       onLogin(user)
     } catch (e) {
       setError(e.message ?? '登録に失敗しました')
-      setPin(''); setConfirm(''); setStep('name')
+      setPin(''); setStep('name')
     } finally { setLoading(false) }
   }
 
@@ -98,14 +87,6 @@ function RegisterScreen({ onLogin, onCancel }) {
           <p className="pin-step-label">4桁のPINを決めてください</p>
           {error && <p className="pin-error">{error}</p>}
           <PinInput value={pin} onChange={setPin} onComplete={handlePinComplete} disabled={loading} autoFocus />
-        </>
-      )}
-
-      {step === 'confirm' && (
-        <>
-          <p className="pin-step-label">もう一度PINを入力してください</p>
-          {error && <p className="pin-error">{error}</p>}
-          <PinInput value={confirm} onChange={setConfirm} onComplete={handleConfirmComplete} disabled={loading} autoFocus />
         </>
       )}
 
@@ -136,7 +117,6 @@ function ResetPinScreen({ member, onSuccess, onCancel }) {
   const [step, setStep]     = useState('secret')
   const [secret, setSecret] = useState('')
   const [pin, setPin]       = useState('')
-  const [confirm, setConfirm] = useState('')
   const [error, setError]   = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -150,19 +130,15 @@ function ResetPinScreen({ member, onSuccess, onCancel }) {
     } finally { setLoading(false) }
   }
 
-  function handlePinComplete(v) { setPin(v); setStep('confirm') }
-
-  async function handleConfirmComplete(v) {
-    setConfirm(v)
-    if (v !== pin) {
-      setError('PINが一致しません'); setPin(''); setConfirm(''); setStep('pin'); return
-    }
+  async function handlePinComplete(v) {
+    setPin(v)
     setLoading(true); setError('')
     try {
-      await resetPin(member.id, pin)
+      await resetPin(member.id, v)
       onSuccess(member)
     } catch (e) {
       setError(e.message ?? 'リセットに失敗しました')
+      setStep('pin')
     } finally { setLoading(false) }
   }
 
@@ -189,15 +165,7 @@ function ResetPinScreen({ member, onSuccess, onCancel }) {
         <>
           <p className="pin-step-label">新しい4桁のPINを決めてください</p>
           {error && <p className="pin-error">{error}</p>}
-          <PinInput value={pin} onChange={setPin} onComplete={handlePinComplete} autoFocus />
-        </>
-      )}
-
-      {step === 'confirm' && (
-        <>
-          <p className="pin-step-label">もう一度入力してください</p>
-          {error && <p className="pin-error">{error}</p>}
-          <PinInput value={confirm} onChange={setConfirm} onComplete={handleConfirmComplete} disabled={loading} autoFocus />
+          <PinInput value={pin} onChange={setPin} onComplete={handlePinComplete} disabled={loading} autoFocus />
           {loading && <p className="pin-loading">更新中...</p>}
         </>
       )}
