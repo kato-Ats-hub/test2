@@ -15,8 +15,9 @@ async function sb(path, options = {}) {
     },
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (res.status === 204 || res.status === 201 && res.headers.get('content-length') === '0') return null
-  return res.json()
+  const text = await res.text()
+  if (!text) return null
+  return JSON.parse(text)
 }
 
 // ── PINハッシュ（WebCrypto / SHA-256）─────────────────
