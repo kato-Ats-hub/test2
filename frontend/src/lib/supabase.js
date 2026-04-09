@@ -44,25 +44,25 @@ async function hashPin(pin) {
 
 // ── ユーザー操作 ───────────────────────────────────────
 export async function getUsers() {
-  const rows = await sb('/users?select=id,name&order=created_at')
+  const rows = await sb('/members?select=id,name&order=created_at')
   return Array.isArray(rows) ? rows : []
 }
 
 export async function registerUser(name, pin) {
   const pin_hash = await hashPin(pin)
   // まず INSERT（レスポンスボディは使わない）
-  await sb('/users', {
+  await sb('/members', {
     method: 'POST',
     body: { name, pin_hash },
   })
   // 挿入したユーザーを GET で取得
-  const rows = await sb(`/users?name=eq.${encodeURIComponent(name)}&select=id,name`)
+  const rows = await sb(`/members?name=eq.${encodeURIComponent(name)}&select=id,name`)
   return Array.isArray(rows) ? rows[0] ?? null : null
 }
 
 export async function loginUser(userId, pin) {
   const pin_hash = await hashPin(pin)
-  const rows = await sb(`/users?id=eq.${userId}&pin_hash=eq.${pin_hash}&select=id,name`)
+  const rows = await sb(`/members?id=eq.${userId}&pin_hash=eq.${pin_hash}&select=id,name`)
   return Array.isArray(rows) ? rows[0] ?? null : null
 }
 
