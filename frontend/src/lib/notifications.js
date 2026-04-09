@@ -1,4 +1,6 @@
-// ── 通知許可を要求 ────────────────────────────────────────
+// メインスレッドでタイマー管理（SWのsetTimeoutはSWが停止すると消えるため）
+const timers = new Map() // taskId → timeoutId
+
 export async function requestPermission() {
   if (!('Notification' in window)) return false
   if (Notification.permission === 'granted') return true
@@ -13,32 +15,44 @@ export function hasPermission() {
 // ── タスク一覧から通知をスケジュール ──────────────────────
 export function scheduleNotifications(tasks) {
   if (!hasPermission()) return
-  if (!navigator.serviceWorker?.controller) return
+
+  // 既存タイマーをすべてリセット
+  timers.forEach(id => clearTimeout(id))
+  timers.clear()
 
   const now = new Date()
   const todayStr = now.toISOString().slice(0, 10)
 
-  const notifications = tasks
+  tasks
     .filter(t => t.due_time && t.status !== 'completed')
-    .map(t => {
-      // 日付が設定されていればその日、なければ今日
+    .forEach(t => {
       const dateStr = t.due_date ?? todayStr
-      // 過去の日付は今日として扱う
       const effectiveDate = dateStr < todayStr ? todayStr : dateStr
       const notifyAt = new Date(`${effectiveDate}T${t.due_time}`)
-      return {
-        id:    t.id,
-        title: '⏰ タスクの時間です',
-        body:  t.title,
-        delay: notifyAt - now,
-      }
-    })
-    .filter(n => n.delay > 0)
+      const delay = notifyAt - now
 
-  navigator.serviceWorker.controller.postMessage({ type: 'SCHEDULE', notifications })
+      if (delay <= 0 || delay > 24 * 60 * 60 * 1000) return
+
+      const id = setTimeout(() => {
+        timers.delete(t.id)
+        if (Notification.permission !== 'granted') return
+        new Notification('⏰ タスクの時間です', {
+          body:    t.title,
+          icon:    '/icon-192.png',
+          badge:   '/icon-192.png',
+          tag:     `task-${t.id}`,
+          vibrate: [200, 100, 200],
+        })
+      }, delay)
+
+      timers.set(t.id, id)
+    })
 }
 
 // ── 単一タスクの通知をキャンセル ─────────────────────────
 export function cancelNotification(taskId) {
-  navigator.serviceWorker?.controller?.postMessage({ type: 'CANCEL', id: taskId })
+  if (timers.has(taskId)) {
+    clearTimeout(timers.get(taskId))
+    timers.delete(taskId)
+  }
 }

@@ -98,3 +98,9 @@ export async function updateTask(taskId, userId, task) {
 export async function deleteTask(taskId, userId) {
   return sb(`/tasks?id=eq.${taskId}&user_id=eq.${userId}`, { method: 'DELETE' })
 }
+
+export async function deleteMember(userId) {
+  // タスクを先に削除してからメンバーを削除
+  await sb(`/tasks?user_id=eq.${userId}`, { method: 'DELETE' })
+  return sb(`/members?id=eq.${userId}`, { method: 'DELETE' })
+}

@@ -71,6 +71,7 @@ body {
 
 .btn-primary { background: linear-gradient(135deg, var(--primary), #a855f7); color: #fff; }
 .btn-ghost   { background: var(--surface2); color: var(--text); border: 1.5px solid var(--border); }
+.btn-danger  { background: var(--surface2); color: var(--danger); border: 1.5px solid var(--danger); }
 .btn-notif   { background: #fef3c7; color: #92400e; border: 1.5px solid #fcd34d; animation: ring .8s ease infinite alternate; }
 [data-theme="dark"] .btn-notif { background: #451a03; color: #fcd34d; border-color: #92400e; }
 @keyframes ring { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }

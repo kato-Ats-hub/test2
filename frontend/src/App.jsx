@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getUsers, registerUser, loginUser, getTasks, createTask, updateTask, deleteTask } from './lib/supabase.js'
+import { getUsers, registerUser, loginUser, getTasks, createTask, updateTask, deleteTask, deleteMember } from './lib/supabase.js'
 import { requestPermission, hasPermission, scheduleNotifications, cancelNotification } from './lib/notifications.js'
 import './App.css'
 
@@ -309,6 +309,17 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
     onLogout()
   }
 
+  async function handleDeleteAccount() {
+    if (!confirm(`「${user.name}」のアカウントとすべてのタスクを削除しますか？\nこの操作は元に戻せません。`)) return
+    try {
+      await deleteMember(user.id)
+      localStorage.removeItem('user')
+      onLogout()
+    } catch (e) {
+      alert('削除に失敗しました: ' + e.message)
+    }
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -328,6 +339,7 @@ function MainApp({ user, onLogout, theme, onToggleTheme }) {
             ＋ 新規
           </button>
           <button className="btn btn-ghost" onClick={logout}>ログアウト</button>
+          <button className="btn btn-danger" onClick={handleDeleteAccount}>アカウント削除</button>
         </div>
       </header>
 
