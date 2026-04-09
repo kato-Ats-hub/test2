@@ -387,6 +387,8 @@ body {
   gap: 2px;
 }
 .cal-day:hover { background: var(--surface2); }
+.cal-day.day-red  { color: #ef4444; }
+.cal-day.day-blue { color: #3b82f6; }
 .cal-day.today { font-weight: 900; color: var(--primary); }
 .cal-day.cal-selected { background: var(--primary); color: #fff; }
 .cal-day.cal-selected .cal-dot { background: #fff; }

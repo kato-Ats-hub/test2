@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getUsers, registerUser, loginUser, getTasks, createTask, updateTask, deleteTask, deleteMember, savePushSubscription } from './lib/supabase.js'
 import { requestPermission, hasPermission, scheduleNotifications, cancelNotification, subscribeToPush } from './lib/notifications.js'
+import { getDayType } from './lib/holidays.js'
 import './App.css'
 
 // ── 定数 ──────────────────────────────────────────────
@@ -238,7 +239,7 @@ function CalendarView({ tasks, selectedDay, onSelectDay }) {
         {cells.map((cell, i) => cell ? (
           <div
             key={i}
-            className={['cal-day', taskDays.has(cell.dateStr) ? 'has-task' : '', cell.dateStr === todayStr ? 'today' : '', cell.dateStr === selectedDay ? 'cal-selected' : ''].filter(Boolean).join(' ')}
+            className={['cal-day', `day-${getDayType(cell.dateStr)}`, taskDays.has(cell.dateStr) ? 'has-task' : '', cell.dateStr === todayStr ? 'today' : '', cell.dateStr === selectedDay ? 'cal-selected' : ''].filter(Boolean).join(' ')}
             onClick={() => onSelectDay(cell.dateStr === selectedDay ? null : cell.dateStr)}
           >
             <span>{cell.d}</span>
