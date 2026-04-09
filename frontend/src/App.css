@@ -126,11 +126,7 @@ body {
 
 .login-overlay {
   position: absolute; inset: 0; z-index: 1;
-  background: linear-gradient(135deg,
-    rgba(124,58,237,.7) 0%,
-    rgba(168,85,247,.5) 40%,
-    rgba(236,72,153,.4) 80%,
-    rgba(0,0,0,.5) 100%);
+  background: rgba(0,0,0,.35);
 }
 
 .login-theme-btn {
